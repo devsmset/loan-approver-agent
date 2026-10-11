@@ -4,7 +4,7 @@ from langgraph.graph import END
 
 def route_after_decision(state: LoanState) -> str:
     
-    next_node = END
+    next_node = "explain_decision"
 
     if state['decision'] == "MANUAL_REVIEW":
         next_node = "human_review"

@@ -1,7 +1,13 @@
 # nodes.py
-from states import LoanState, CheckResult
+from states import LoanState
+from llm import llm
 
 REQUIRED_DOCUMENTS = ["income_proof", "bank_statement", "id_proof"]
+
+FALLBACK_MESSAGES = {
+    "APPROVED": "Your home loan application has been approved.",
+    "REJECTED": "We are unable to approve your home loan application at this time.",
+}
 
 MIN_CREDIT_SCORE = 600
 GOOD_CREDIT_SCORE = 700
@@ -21,11 +27,13 @@ def check_documents(state: LoanState) -> dict:
 
     return {
         "missing_documents": missing_documents,
-        "check_results": [{
-            "check": "documents",
-            "verdict": verdict,
-            "reasons": [reason],
-        }],
+        "check_results": [
+            {
+                "check": "documents",
+                "verdict": verdict,
+                "reasons": [reason],
+            }
+        ],
     }
 
 
@@ -71,6 +79,7 @@ def check_income_and_debt(state: LoanState) -> dict:
         "check_results": [{"check": "income", "verdict": verdict, "reasons": reasons}]
     }
 
+
 def decide(state: LoanState) -> dict:
 
     verdict = [r["verdict"] for r in state["check_results"]]
@@ -81,13 +90,40 @@ def decide(state: LoanState) -> dict:
         return {"decision": "MORE_INFO_REQUIRED"}
     if "REVIEW" in verdict:
         return {"decision": "MANUAL_REVIEW"}
-    
-    return {"decision" : "APPROVED", "message": "Loan approved"}
 
-def request_documents(state:LoanState) -> dict:
+    return {"decision": "APPROVED", "message": "Loan approved"}
+
+
+def request_documents(state: LoanState) -> dict:
     missing_docs = ", ".join(state["missing_documents"])
     message = f"Please upload: {missing_docs}"
     return {"message": message}
 
-def human_review(state:LoanState) -> dict:
+
+def human_review(state: LoanState) -> dict:
     return {"message": "Sent to loan reviewer department"}
+
+
+def explain_decision(state: LoanState) -> dict:
+    decision = state["decision"]
+    prompt = f"""
+    You are a home loan assistant at a bank.
+    Write a short, polite message to the applicant.
+
+    Decision: {decision}
+    Findings: {state["check_results"]}
+
+    Rules:
+    - Do not change or question the decision.
+    - Do not promise anything.
+    - Maximum 3 sentences.
+    - Provide the exact reason for which the loan was rejected, which you will get in the Findings section
+    - Format the answer in short sentences and provide emojis
+    """
+    try:
+        result = llm().invoke(prompt)
+        message_to_customer = result.content
+    except:
+        message_to_customer = FALLBACK_MESSAGES[decision]
+
+    return {"message": message_to_customer}
