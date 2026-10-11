@@ -1,0 +1,8 @@
+[project]
+name = "cba-interview"
+version = "0.1.0"
+description = "Loan approval agent"
+requires-python = ">=3.9"
+dependencies = [
+    "langgraph>=0.6.11",
+]
